@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Driver Log</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f3; color: #1a1a1a; min-height: 100vh; }
+
+  .header { background: #fff; border-bottom: 0.5px solid #e0e0e0; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+  .header-icon { width: 32px; height: 32px; background: #1D9E75; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .header-icon svg { width: 18px; height: 18px; fill: white; }
+  .header h1 { font-size: 17px; font-weight: 500; }
+  .header p { font-size: 13px; color: #888; }
+
+  .container { max-width: 600px; margin: 0 auto; padding: 24px 16px; }
+
+  .card { background: #fff; border: 0.5px solid #e0e0e0; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 13px; font-weight: 500; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
+
+  .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .upload-box { border: 1.5px dashed #d0d0d0; border-radius: 10px; aspect-ratio: 4/3; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; position: relative; overflow: hidden; background: #fafafa; }
+  .upload-box:hover { border-color: #1D9E75; background: #f0faf6; }
+  .upload-box.has-image { border-style: solid; border-color: #1D9E75; }
+  .upload-box img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .upload-box .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.45); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s; }
+  .upload-box:hover .overlay { opacity: 1; }
+  .upload-box .overlay span { color: white; font-size: 12px; margin-top: 6px; }
+  .upload-label { font-size: 12px; color: #888; margin-top: 8px; text-align: center; }
+  .upload-icon { color: #bbb; margin-bottom: 8px; }
+  .upload-text { font-size: 12px; color: #aaa; }
+  .upload-sub { font-size: 11px; color: #bbb; margin-top: 2px; }
+  .reading-badge { position: absolute; bottom: 6px; left: 6px; right: 6px; background: rgba(0,0,0,0.7); color: white; font-size: 12px; font-weight: 500; text-align: center; border-radius: 4px; padding: 3px 6px; }
+
+  .info-row { display: flex; gap: 12px; margin-bottom: 16px; }
+  .info-field { flex: 1; }
+  .info-field label { display: block; font-size: 12px; color: #888; margin-bottom: 6px; }
+  .info-field input { width: 100%; padding: 8px 12px; border: 0.5px solid #e0e0e0; border-radius: 8px; font-size: 14px; outline: none; background: #fff; color: #1a1a1a; }
+  .info-field input:focus { border-color: #1D9E75; }
+
+  .readings-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; margin-bottom: 16px; }
+  .reading-val { background: #f5f5f3; border-radius: 8px; padding: 10px 12px; text-align: center; }
+  .reading-val .lbl { font-size: 11px; color: #888; margin-bottom: 2px; }
+  .reading-val .num { font-size: 20px; font-weight: 500; color: #1a1a1a; }
+  .reading-val .num.empty { color: #ccc; font-size: 14px; }
+  .arrow { color: #bbb; font-size: 18px; text-align: center; }
+  .distance-box { background: #e1f5ee; border-radius: 8px; padding: 12px; text-align: center; }
+  .distance-box .lbl { font-size: 11px; color: #0F6E56; margin-bottom: 2px; }
+  .distance-box .num { font-size: 28px; font-weight: 500; color: #0F6E56; }
+
+  button { cursor: pointer; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; padding: 10px 20px; transition: all 0.15s; }
+  .btn-primary { background: #1D9E75; color: white; width: 100%; padding: 13px; font-size: 15px; }
+  .btn-primary:hover { background: #178a65; }
+  .btn-primary:disabled { background: #b0d9c9; cursor: not-allowed; }
+  .btn-secondary { background: #f5f5f3; color: #555; border: 0.5px solid #e0e0e0; }
+  .btn-secondary:hover { background: #eeeeec; }
+  .btn-danger { background: transparent; color: #c0392b; border: none; font-size: 12px; padding: 4px 8px; }
+
+  .status-msg { font-size: 13px; text-align: center; padding: 10px; border-radius: 8px; margin-bottom: 12px; }
+  .status-msg.loading { background: #f0f0ee; color: #666; }
+  .status-msg.error { background: #fcebeb; color: #c0392b; }
+  .status-msg.success { background: #e1f5ee; color: #0F6E56; }
+
+  .log-empty { text-align: center; padding: 40px 20px; color: #bbb; font-size: 14px; }
+  .log-item { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 0.5px solid #f0f0f0; }
+  .log-item:last-child { border-bottom: none; }
+  .log-dot { width: 36px; height: 36px; border-radius: 50%; background: #e1f5ee; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 12px; font-weight: 500; color: #0F6E56; }
+  .log-info { flex: 1; min-width: 0; }
+  .log-title { font-size: 14px; font-weight: 500; color: #1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .log-sub { font-size: 12px; color: #888; margin-top: 2px; }
+  .log-km { font-size: 16px; font-weight: 500; color: #1D9E75; text-align: right; flex-shrink: 0; }
+  .log-km span { display: block; font-size: 11px; color: #bbb; font-weight: 400; text-align: right; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat-item { background: #f5f5f3; border-radius: 8px; padding: 12px; text-align: center; }
+  .stat-item .v { font-size: 20px; font-weight: 500; color: #1a1a1a; }
+  .stat-item .l { font-size: 11px; color: #888; margin-top: 2px; }
+
+  .tabs { display: flex; gap: 0; background: #f5f5f3; border-radius: 10px; padding: 3px; margin-bottom: 20px; }
+  .tab { flex: 1; padding: 8px; text-align: center; font-size: 13px; font-weight: 500; border-radius: 8px; cursor: pointer; color: #888; border: none; background: transparent; transition: all 0.15s; }
+  .tab.active { background: #fff; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+  input[type="file"] { display: none; }
+
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 8px; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-icon">
+    <svg viewBox="0 0 24 24"><path d="M18.92 5.01C18.72 4.42 18.16 4 17.5 4h-11c-.66 0-1.21.42-1.42 1.01L3 11v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 6h10.29l1.04 3H5.81l1.04-3zM19 15H5v-4h14v4z"/><circle cx="7.5" cy="14.5" r="1.5"/><circle cx="16.5" cy="14.5" r="1.5"/></svg>
+  </div>
+  <div>
+    <h1>Driver Log</h1>
+    <p>Track your trips by odometer photos</p>
+  </div>
+</div>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('log')">Log trip</button>
+    <button class="tab" onclick="showTab('history')">History</button>
+  </div>
+
+  <!-- LOG TAB -->
+  <div id="tab-log">
+    <div class="card">
+      <div class="card-title">Trip details</div>
+      <div class="info-row">
+        <div class="info-field">
+          <label>Date</label>
+          <input type="date" id="trip-date">
+        </div>
+        <div class="info-field">
+          <label>Purpose (optional)</label>
+          <input type="text" id="trip-purpose" placeholder="e.g. Client visit">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Odometer photos</div>
+      <div class="upload-grid">
+        <div>
+          <div class="upload-box" id="box-start" onclick="triggerUpload('start')">
+            <div class="upload-icon">
+              <svg width="28" height="28" fill="none" stroke="#ccc" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <div class="upload-text">Start photo</div>
+            <div class="upload-sub">Tap to upload</div>
+            <div class="overlay"><svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>Change photo</span></div>
+          </div>
+          <div class="upload-label" id="lbl-start">Before trip</div>
+        </div>
+        <div>
+          <div class="upload-box" id="box-end" onclick="triggerUpload('end')">
+            <div class="upload-icon">
+              <svg width="28" height="28" fill="none" stroke="#ccc" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <div class="upload-text">End photo</div>
+            <div class="upload-sub">Tap to upload</div>
+            <div class="overlay"><svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>Change photo</span></div>
+          </div>
+          <div class="upload-label" id="lbl-end">After trip</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="readings-card" style="display:none">
+      <div class="card-title">Readings</div>
+      <div class="readings-row">
+        <div class="reading-val">
+          <div class="lbl">Start</div>
+          <div class="num" id="val-start">—</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="reading-val">
+          <div class="lbl">End</div>
+          <div class="num" id="val-end">—</div>
+        </div>
+      </div>
+      <div class="distance-box">
+        <div class="lbl">Distance</div>
+        <div class="num" id="val-distance">—</div>
+      </div>
+    </div>
+
+    <div id="status-area"></div>
+
+    <button class="btn-primary" id="btn-calculate" onclick="runCalculation()" disabled>
+      Read odometers &amp; calculate
+    </button>
+
+    <div id="save-area" style="display:none; margin-top:12px;">
+      <button class="btn-primary" onclick="saveTrip()">Save trip</button>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div id="tab-history" style="display:none">
+    <div class="card" id="stats-card" style="display:none">
+      <div class="card-title">Total stats</div>
+      <div class="stats-grid" id="stats-grid"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Trip history</div>
+      <div id="history-list"><div class="log-empty">No trips logged yet</div></div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="file-start" accept="image/*" capture="environment" onchange="handleFile('start', this)">
+<input type="file" id="file-end" accept="image/*" capture="environment" onchange="handleFile('end', this)">
+
+<script>
+const STORAGE_KEY = 'driver-log-trips';
+let startB64 = null, endB64 = null;
+let startReading = null, endReading = null;
+let currentTrips = [];
+
+// init date
+document.getElementById('trip-date').value = new Date().toISOString().split('T')[0];
+
+// Load trips from storage
+async function loadTrips() {
+  try {
+    const result = await window.storage.get(STORAGE_KEY);
+    currentTrips = result ? JSON.parse(result.value) : [];
+  } catch(e) {
+    currentTrips = [];
+  }
+  renderHistory();
+}
+
+async function saveToStorage() {
+  try {
+    await window.storage.set(STORAGE_KEY, JSON.stringify(currentTrips));
+  } catch(e) {
+    console.error('Storage error', e);
+  }
+}
+
+function showTab(t) {
+  document.getElementById('tab-log').style.display = t === 'log' ? '' : 'none';
+  document.getElementById('tab-history').style.display = t === 'history' ? '' : 'none';
+  document.querySelectorAll('.tab').forEach((el, i) => {
+    el.classList.toggle('active', (i === 0 && t === 'log') || (i === 1 && t === 'history'));
+  });
+  if (t === 'history') renderHistory();
+}
+
+function triggerUpload(side) {
+  document.getElementById('file-' + side).click();
+}
+
+function handleFile(side, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    const b64 = dataUrl.split(',')[1];
+    const box = document.getElementById('box-' + side);
+    box.innerHTML = `<img src="${dataUrl}"><div class="overlay"><svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>Change photo</span></div>`;
+    box.classList.add('has-image');
+    box.onclick = () => triggerUpload(side);
+    if (side === 'start') { startB64 = b64; startReading = null; }
+    else { endB64 = b64; endReading = null; }
+    updateCalculateBtn();
+    // reset readings
+    document.getElementById('readings-card').style.display = 'none';
+    document.getElementById('save-area').style.display = 'none';
+    document.getElementById('status-area').innerHTML = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateCalculateBtn() {
+  document.getElementById('btn-calculate').disabled = !(startB64 && endB64);
+}
+
+function setStatus(msg, type) {
+  const area = document.getElementById('status-area');
+  area.innerHTML = msg ? `<div class="status-msg ${type}">${msg}</div>` : '';
+}
+
+async function readOdometer(b64, label) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 200,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
+          { type: 'text', text: 'This is a photo of a car odometer. Read the odometer value shown. Respond with ONLY a JSON object like: {"km": 12345, "confidence": "high"} where km is the numeric value (integer, no units). If you cannot read it clearly, set confidence to "low". No other text.' }
+        ]
+      }]
+    })
+  });
+  const data = await res.json();
+  const text = data.content.map(c => c.text || '').join('');
+  const clean = text.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
+async function runCalculation() {
+  const btn = document.getElementById('btn-calculate');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Reading odometers…';
+  document.getElementById('save-area').style.display = 'none';
+  document.getElementById('readings-card').style.display = 'none';
+  setStatus('', '');
+
+  try {
+    setStatus('Reading start odometer…', 'loading');
+    const s = await readOdometer(startB64, 'start');
+    setStatus('Reading end odometer…', 'loading');
+    const e = await readOdometer(endB64, 'end');
+
+    startReading = s.km;
+    endReading = e.km;
+    const dist = endReading - startReading;
+
+    document.getElementById('val-start').textContent = startReading.toLocaleString() + ' km';
+    document.getElementById('val-end').textContent = endReading.toLocaleString() + ' km';
+
+    if (dist < 0) {
+      document.getElementById('val-distance').textContent = '—';
+      setStatus('End reading is less than start. Please check your photos are in the right order.', 'error');
+    } else {
+      document.getElementById('val-distance').textContent = dist.toLocaleString() + ' km';
+      setStatus('', '');
+      document.getElementById('save-area').style.display = '';
+    }
+
+    document.getElementById('readings-card').style.display = '';
+    const warn = (s.confidence === 'low' || e.confidence === 'low') ? ' (low confidence — please verify)' : '';
+    if (warn && dist >= 0) setStatus('Readings extracted' + warn, 'loading');
+
+  } catch(err) {
+    setStatus('Could not read odometer. Make sure the photo shows the display clearly.', 'error');
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Re-read odometers';
+  }
+}
+
+function saveTrip() {
+  const date = document.getElementById('trip-date').value;
+  const purpose = document.getElementById('trip-purpose').value.trim();
+  const dist = endReading - startReading;
+  const trip = {
+    id: Date.now(),
+    date,
+    purpose: purpose || 'Trip',
+    start: startReading,
+    end: endReading,
+    km: dist
+  };
+  currentTrips.unshift(trip);
+  saveToStorage();
+  setStatus('Trip saved!', 'success');
+  document.getElementById('save-area').style.display = 'none';
+  // reset
+  setTimeout(() => {
+    resetForm();
+    showTab('history');
+  }, 1000);
+}
+
+function resetForm() {
+  startB64 = null; endB64 = null; startReading = null; endReading = null;
+  ['start','end'].forEach(s => {
+    const box = document.getElementById('box-' + s);
+    box.className = 'upload-box';
+    box.innerHTML = `<div class="upload-icon"><svg width="28" height="28" fill="none" stroke="#ccc" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div><div class="upload-text">${s === 'start' ? 'Start' : 'End'} photo</div><div class="upload-sub">Tap to upload</div><div class="overlay"><svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>Change photo</span></div>`;
+    box.onclick = () => triggerUpload(s);
+    document.getElementById('file-' + s).value = '';
+  });
+  document.getElementById('readings-card').style.display = 'none';
+  document.getElementById('status-area').innerHTML = '';
+  document.getElementById('btn-calculate').disabled = true;
+  document.getElementById('btn-calculate').textContent = 'Read odometers & calculate';
+  document.getElementById('trip-purpose').value = '';
+  document.getElementById('trip-date').value = new Date().toISOString().split('T')[0];
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  const statsCard = document.getElementById('stats-card');
+  if (currentTrips.length === 0) {
+    list.innerHTML = '<div class="log-empty">No trips logged yet</div>';
+    statsCard.style.display = 'none';
+    return;
+  }
+
+  statsCard.style.display = '';
+  const totalKm = currentTrips.reduce((a, t) => a + t.km, 0);
+  const days = new Set(currentTrips.map(t => t.date)).size;
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-item"><div class="v">${currentTrips.length}</div><div class="l">Trips</div></div>
+    <div class="stat-item"><div class="v">${totalKm.toLocaleString()}</div><div class="l">Total km</div></div>
+    <div class="stat-item"><div class="v">${days}</div><div class="l">Days</div></div>
+  `;
+
+  list.innerHTML = currentTrips.map((t, i) => `
+    <div class="log-item">
+      <div class="log-dot">${t.km}</div>
+      <div class="log-info">
+        <div class="log-title">${esc(t.purpose)}</div>
+        <div class="log-sub">${formatDate(t.date)} · ${t.start.toLocaleString()} → ${t.end.toLocaleString()} km</div>
+      </div>
+      <div>
+        <div class="log-km">${t.km} km</div>
+        <button class="btn-danger" onclick="deleteTrip(${i})">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function deleteTrip(i) {
+  if (!confirm('Delete this trip?')) return;
+  currentTrips.splice(i, 1);
+  saveToStorage();
+  renderHistory();
+}
+
+function formatDate(d) {
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+loadTrips();
+</script>
+</body>
+</html>
